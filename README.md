@@ -74,13 +74,15 @@ clean while the role can still write. Ask for the effective permission instead, 
 schema-qualified table:
 
 ```sql
-SELECT has_table_privilege(current_user, 'public.your_table', 'UPDATE') AS can_update,
-       has_table_privilege(current_user, 'public.your_table', 'DELETE') AS can_delete,
-       pg_get_userbyid(relowner)                AS table_owner,
-       current_user,
-       pg_get_userbyid(relowner) = current_user AS i_am_the_owner
+SELECT has_table_privilege('your_app_role', 'public.your_table', 'UPDATE') AS app_can_update,
+       has_table_privilege('your_app_role', 'public.your_table', 'DELETE') AS app_can_delete,
+       pg_get_userbyid(relowner)                   AS table_owner,
+       'your_app_role' = pg_get_userbyid(relowner) AS app_is_owner
 FROM pg_class WHERE oid = 'public.your_table'::regclass;
 ```
+
+Name the role explicitly rather than using `current_user`: run as a superuser or as the owner and
+`current_user` answers about them, not about your application. Run it on a replica or a copy.
 
 A check that wrongly reports clean is worse than no check.
 
