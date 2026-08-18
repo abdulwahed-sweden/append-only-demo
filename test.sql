@@ -115,6 +115,42 @@ BEGIN
 END
 $$;
 
+-- 8 -------------------------------------------------------------------
+-- The check most people run is not the check they need.
+--
+-- A privilege inherited through a group role does not appear in
+-- information_schema when you filter on grantee = current_user. Neither
+-- does one granted to PUBLIC. The query reports "clean" and the role can
+-- still write, which is worse than not having checked at all.
+DO $$
+DECLARE naive TEXT; effective BOOLEAN;
+BEGIN
+    CREATE ROLE demo_ledger_writers NOLOGIN;
+    GRANT UPDATE ON safe.entries TO demo_ledger_writers;
+    GRANT demo_ledger_writers TO app_user;
+
+    SET ROLE app_user;
+    SELECT coalesce(string_agg(privilege_type, ','), '(nothing)') INTO naive
+      FROM information_schema.role_table_grants
+     WHERE grantee = current_user
+       AND table_schema = 'safe' AND table_name = 'entries';
+    effective := has_table_privilege(current_user, 'safe.entries', 'UPDATE');
+    RESET ROLE;
+
+    REVOKE UPDATE ON safe.entries FROM demo_ledger_writers;
+    REVOKE demo_ledger_writers FROM app_user;
+    DROP ROLE demo_ledger_writers;
+
+    IF position('UPDATE' in naive) > 0 THEN
+        RAISE EXCEPTION 'FAIL: the naive grants query was expected to miss the inherited privilege';
+    END IF;
+    IF NOT effective THEN
+        RAISE EXCEPTION 'FAIL: the effective check missed an inherited UPDATE privilege';
+    END IF;
+    RAISE NOTICE 'PASS  an inherited UPDATE is invisible to the naive grants query (it reports %) and caught by has_table_privilege', naive;
+END
+$$;
+
 RESET ROLE;
 \echo
-\echo '7 of 7 assertions passed.'
+\echo '8 of 8 assertions passed.'

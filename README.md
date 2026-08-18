@@ -14,7 +14,7 @@ schemas in one throwaway database.
 
 ```sh
 ./demo.sh              # the failure and the repair, side by side
-./test.sh              # the rule, asserted — 7 of 7 pass
+./test.sh              # the rule, asserted — 8 of 8 pass
 ./test.sh --no-guard   # the same schema without the two grants — stops at the first failure
 ```
 
@@ -64,6 +64,25 @@ The table **owner** is not subject to its own grants. Assertion 7 proves it: con
 the owner, the same `UPDATE` succeeds. Everything above is undone by a deployment that
 connects to Postgres as the user that owns the tables — which is the default in most
 setups, and the reason people believe they have this protection when they do not.
+
+## Checking your own system
+
+The obvious check is to read `information_schema.role_table_grants` filtered on
+`grantee = current_user`. Assertion 8 shows why that is not enough: a privilege inherited
+through a group role — or granted to `PUBLIC` — does not appear there, so the query reports
+clean while the role can still write. Ask for the effective permission instead, on a
+schema-qualified table:
+
+```sql
+SELECT has_table_privilege(current_user, 'public.your_table', 'UPDATE') AS can_update,
+       has_table_privilege(current_user, 'public.your_table', 'DELETE') AS can_delete,
+       pg_get_userbyid(relowner)                AS table_owner,
+       current_user,
+       pg_get_userbyid(relowner) = current_user AS i_am_the_owner
+FROM pg_class WHERE oid = 'public.your_table'::regclass;
+```
+
+A check that wrongly reports clean is worse than no check.
 
 ## The rule the tests enforce
 
