@@ -106,3 +106,5 @@ independent reconstruction of the failure, written to be read in a few minutes.
 If you cannot prove what one of your records said last month, that is worth fixing before
 someone asks.
 **Abdulwahed Mansour** · abdulwahed.sweden@gmail.com
+
+All five reproductions in one place: https://github.com/abdulwahed-sweden
